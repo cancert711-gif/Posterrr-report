@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>電影特映會票券餘額即時回報站</title>
+  <style>
+    :root {
+      --primary: #e50914;
+      --bg: #141414;
+      --card-bg: #1f1f1f;
+      --text: #ffffff;
+      --text-sub: #b3b3b3;
+      --border: #333333;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      color: var(--primary);
+    }
+    .card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 0.9rem;
+      color: var(--text-sub);
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      background: #2b2b2b;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: #fff;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      font-weight: bold;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: bold;
+    }
+    .status-available { background: #2e7d32; color: #fff; }
+    .status-few { background: #ed6c02; color: #fff; }
+    .status-empty { background: #d32f2f; color: #fff; }
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .item-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    .meta {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🎬 電影特映會票券回報站</h1>
+
+  <!-- 回報表單 -->
+  <div class="card">
+    <h2>回報特映會狀況</h2>
+    <form id="reportForm">
+      <div class="form-group">
+        <label for="movieName">電影名稱</label>
+        <input type="text" id="movieName" placeholder="例如：阿凡達3" required>
+      </div>
+      <div class="form-group">
+        <label for="location">發放地點 / 活動平台</label>
+        <input type="text" id="location" placeholder="例如：台北信義威秀 / 車庫娛樂 FB 專頁" required>
+      </div>
+      <div class="form-group">
+        <label for="status">票券現況</label>
+        <select id="status">
+          <option value="available">熱烈發放中 (名額充裕)</option>
+          <option value="few">即將完售 (數量有限)</option>
+          <option value="empty">已發完 / 已結束</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="note">補充說明（可選）</label>
+        <input type="text" id="note" placeholder="例如：現場排隊約15人、需出示相關App序號">
+      </div>
+      <button type="submit">送出回報</button>
+    </form>
+  </div>
+
+  <!-- 最新回報列表 -->
+  <h2>最新回報列表</h2>
+  <div id="reportList"></div>
+</div>
+
+<script>
+  // 模擬初期數據
+  let reports = [
+    {
+      movie: "新世紀福音戰士",
+      location: "京站威秀 4F 現場劃位處",
+      status: "few",
+      statusText: "即將完售",
+      note: "排隊隊伍尚長，工作人員說明剩餘少量票券",
+      time: "10 分鐘前"
+    },
+    {
+      movie: "神隱少女 數位重映",
+      location: "電影神搜 官網抽獎活動",
+      status: "empty",
+      statusText: "已發完",
+      note: "網頁已顯示額滿關閉",
+      time: "25 分鐘前"
+    }
+  ];
+
+  function renderReports() {
+    const listEl = document.getElementById('reportList');
+    listEl.innerHTML = '';
+
+    reports.forEach(r => {
+      let badgeClass = 'status-available';
+      if(r.status === 'few') badgeClass = 'status-few';
+      if(r.status === 'empty') badgeClass = 'status-empty';
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="item-header">
+          <span class="item-title">${r.movie}</span>
+          <span class="status-badge ${badgeClass}">${r.statusText}</span>
+        </div>
+        <div>📍 <strong>地點/管道：</strong> ${r.location}</div>
+        ${r.note ? `<div style="margin-top:4px;">💬 <strong>說明：</strong> ${r.note}</div>` : ''}
+        <div class="meta">⏰ 回報時間：${r.time}</div>
+      `;
+      listEl.appendChild(card);
+    });
+  }
+
+  document.getElementById('reportForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const movie = document.getElementById('movieName').value;
+    const location = document.getElementById('location"').value;
+    const statusSelect = document.getElementById('status');
+    const status = statusSelect.value;
+    const statusText = statusSelect.options[statusSelect.selectedIndex].text.split(' ')[0];
+    const note = document.getElementById('note').value;
+
+    reports.unshift({
+      movie,
+      location,
+      status,
+      statusText,
+      note,
+      time: "剛剛"
+    });
+
+    renderReports();
+    this.reset();
+  });
+
+  // 初次渲染
+  renderReports();
+</script>
+
+</body>
+</html>
