@@ -71,6 +71,47 @@
     button:hover {
       opacity: 0.9;
     }
+    .clear-btn {
+      background-color: #444;
+      margin-top: 10px;
+    }
+    
+    /* 分類篩選區塊樣式 */
+    .filter-section {
+      background: #181818;
+      padding: 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .filter-title {
+      font-size: 0.95rem;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: var(--text-sub);
+    }
+    .filter-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .filter-btn {
+      background: #2b2b2b;
+      color: #ccc;
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      width: auto;
+    }
+    .filter-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    
     .status-badge {
       display: inline-block;
       padding: 4px 8px;
@@ -115,12 +156,33 @@
       margin-top: 10px;
       border: 1px solid var(--border);
     }
+    .no-data {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-sub);
+    }
   </style>
 </head>
 <body>
 
 <div class="container">
   <h1>🎬 電影特典即時回報站</h1>
+
+  <!-- 頂部分類與戲院過濾器 -->
+  <div class="filter-section">
+    <div class="filter-title">🔍 按院線與戲院過濾：</div>
+    <div class="filter-buttons" id="chainFilters">
+      <button class="filter-btn active" data-chain="ALL">全部院線</button>
+      <button class="filter-btn" data-chain="英皇院線">英皇院線</button>
+      <button class="filter-btn" data-chain="MCL院線">MCL 院線</button>
+      <button class="filter-btn" data-chain="百老匯院線">百老匯</button>
+      <button class="filter-btn" data-chain="高先電影">高先</button>
+      <button class="filter-btn" data-chain="影藝院線">影藝</button>
+    </div>
+    <div>
+      <input type="text" id="cinemaSearch" placeholder="搜尋特定戲院分店（例如：iSQUARE、德福...）">
+    </div>
+  </div>
 
   <!-- 回報表單 -->
   <div class="card">
@@ -137,15 +199,16 @@
           <option value="">請選擇院線...</option>
           <option value="英皇院線">英皇院線 (Emperor Cinemas)</option>
           <option value="MCL院線">MCL 院線</option>
+          <option value="百老匯院線">百老匯院線 (Broadway)</option>
           <option value="高先電影">高先 (Golden Scene)</option>
           <option value="影藝院線">影藝 (Cine-Art House)</option>
-          <option value="其他管道">其他 / 網上平台</option>
+          <option value="其他管道">其他 / 獨立戲院</option>
         </select>
       </div>
 
       <div class="form-group">
         <label for="cinemaName">戲院名稱 / 分店</label>
-        <input type="text" id="cinemaName" placeholder="例如：尖沙咀 iSQUARE / 德福戲院 / 堅尼地城" required>
+        <input type="text" id="cinemaName" placeholder="例如：尖沙咀 iSQUARE / 德福戲院" required>
       </div>
 
       <div class="form-group">
@@ -176,14 +239,19 @@
     </form>
   </div>
 
-  <!-- 最新回報列表 -->
-  <h2>最新回報列表</h2>
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>最新回報列表</h2>
+    <button id="clearBtn" class="clear-btn" style="width: auto; padding: 6px 12px; font-size: 0.8rem;">清空本地紀錄</button>
+  </div>
   <div id="reportList"></div>
 </div>
 
 <script>
-  // 模擬初期數據
-  let reports = [
+  let currentChainFilter = 'ALL';
+  let currentCinemaSearch = '';
+
+  // 從 LocalStorage 載入資料
+  let reports = JSON.parse(localStorage.getItem('poster_reports')) || [
     {
       movie: "劇場版 咒術迴戰",
       chain: "MCL院線",
@@ -193,7 +261,18 @@
       statusText: "即將完售",
       note: "下午場次排隊人潮多，職員表示所餘無幾",
       image: "",
-      time: "15 分鐘前"
+      time: "預設範例"
+    },
+    {
+      movie: "排球少年!! 垃圾場的決戰",
+      chain: "百老匯院線",
+      location: "B+ cinema apm",
+      perk: "33.5卷 繁體中文特刊",
+      status: "available",
+      statusText: "熱烈發放中",
+      note: "現場庫存充足",
+      image: "",
+      time: "預設範例"
     }
   ];
 
@@ -201,7 +280,19 @@
     const listEl = document.getElementById('reportList');
     listEl.innerHTML = '';
 
-    reports.forEach(r => {
+    // 依院線與戲院名稱進行二重過濾
+    const filteredReports = reports.filter(r => {
+      const matchChain = (currentChainFilter === 'ALL') || (r.chain === currentChainFilter);
+      const matchCinema = r.location.toLowerCase().includes(currentCinemaSearch.toLowerCase());
+      return matchChain && matchCinema;
+    });
+
+    if (filteredReports.length === 0) {
+      listEl.innerHTML = `<div class="card no-data">目前沒有符合該條件的特典回報資料</div>`;
+      return;
+    }
+
+    filteredReports.forEach(r => {
       let badgeClass = 'status-available';
       if(r.status === 'few') badgeClass = 'status-few';
       if(r.status === 'empty') badgeClass = 'status-empty';
@@ -225,6 +316,11 @@
     });
   }
 
+  function saveToLocalStorage() {
+    localStorage.setItem('poster_reports', JSON.stringify(reports));
+  }
+
+  // 表單送出處理
   document.getElementById('reportForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -237,6 +333,7 @@
     const statusText = statusSelect.options[statusSelect.selectedIndex].text.split(' ')[0];
     const note = document.getElementById('note').value;
     const imageInput = document.getElementById('perkImage');
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     function saveAndRender(imageUrl = '') {
       reports.unshift({
@@ -248,13 +345,13 @@
         statusText,
         note,
         image: imageUrl,
-        time: "剛剛"
+        time: nowTime
       });
+      saveToLocalStorage();
       renderReports();
       document.getElementById('reportForm').reset();
     }
 
-    // 處理圖片上傳轉為 Base64 顯示
     if (imageInput.files && imageInput.files[0]) {
       const reader = new FileReader();
       reader.onload = function(e) {
@@ -266,7 +363,32 @@
     }
   });
 
-  // 初次渲染
+  // 院線篩選按鈕事件
+  document.getElementById('chainFilters').addEventListener('click', function(e) {
+    if (e.target.classList.contains('filter-btn')) {
+      document.querySelectorAll('#chainFilters .filter-btn').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      currentChainFilter = e.target.getAttribute('data-chain');
+      renderReports();
+    }
+  });
+
+  // 戲院搜尋框即時過濾
+  document.getElementById('cinemaSearch').addEventListener('input', function(e) {
+    currentCinemaSearch = e.target.value.trim();
+    renderReports();
+  });
+
+  // 清空按鈕
+  document.getElementById('clearBtn').addEventListener('click', function() {
+    if (confirm('確定要清空所有本地儲存的回報資料嗎？')) {
+      localStorage.removeItem('poster_reports');
+      reports = [];
+      renderReports();
+    }
+  });
+
+  // 頁面初始化
   renderReports();
 </script>
 
