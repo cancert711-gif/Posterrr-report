@@ -132,4 +132,344 @@
       margin-right: 6px;
     }
 
-    .item
+    .item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .item-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+    .meta {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+      margin-top: 6px;
+    }
+    .report-img {
+      max-width: 100%;
+      height: auto;
+      max-height: 200px;
+      border-radius: 4px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+    }
+    .no-data {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-sub);
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🎬 電影特典即時回報站</h1>
+
+  <!-- 頂部分類與戲院過濾器 -->
+  <div class="filter-section">
+    <div class="filter-title">🔍 按院線與戲院過濾：</div>
+    <div class="filter-buttons" id="chainFilters">
+      <button class="filter-btn active" data-chain="ALL">全部院線</button>
+      <button class="filter-btn" data-chain="英皇院線">英皇院線</button>
+      <button class="filter-btn" data-chain="MCL院線">MCL 院線</button>
+      <button class="filter-btn" data-chain="百老匯院線">百老匯</button>
+      <button class="filter-btn" data-chain="高先電影">高先</button>
+      <button class="filter-btn" data-chain="影藝院線">影藝</button>
+    </div>
+    <div>
+      <input type="text" id="cinemaSearch" placeholder="搜尋特定戲院分店（例如：iSQUARE、德福...）">
+    </div>
+  </div>
+
+  <!-- 回報表單 -->
+  <div class="card">
+    <h2>回報特典與庫存狀況</h2>
+    <form id="reportForm">
+      <div class="form-group">
+        <label for="movieName">電影名稱</label>
+        <input type="text" id="movieName" placeholder="例如：劇場版 藍色監獄" required>
+      </div>
+
+      <div class="form-group">
+        <label for="cinemaChain">選擇院線</label>
+        <select id="cinemaChain" required>
+          <option value="">請選擇院線...</option>
+          <option value="英皇院線">英皇院線 (Emperor Cinemas)</option>
+          <option value="MCL院線">MCL 院線</option>
+          <option value="百老匯院線">百老匯院線 (Broadway)</option>
+          <option value="高先電影">高先 (Golden Scene)</option>
+          <option value="影藝院線">影藝 (Cine-Art House)</option>
+          <option value="其他管道">其他 / 獨立戲院</option>
+        </select>
+      </div>
+
+      <!-- 動態切換：選擇院線後自動列出分店下拉選單或文字框 -->
+      <div class="form-group">
+        <label for="cinemaName">戲院名稱 / 分店</label>
+        <select id="cinemaSelect" required>
+          <option value="">請先選擇院線...</option>
+        </select>
+        <input type="text" id="cinemaInput" placeholder="請輸入戲院名稱或地點" style="display: none;">
+      </div>
+
+      <div class="form-group">
+        <label for="perkDesc">特典內容描述</label>
+        <input type="text" id="perkDesc" placeholder="例如：A3雙面角色海報、透卡特典" required>
+      </div>
+
+      <div class="form-group">
+        <label for="perkImage">上傳特典照片</label>
+        <input type="file" id="perkImage" accept="image/*">
+      </div>
+
+      <div class="form-group">
+        <label for="status">目前存貨狀況</label>
+        <select id="status">
+          <option value="available">熱烈發放中 (名額充裕)</option>
+          <option value="few">即將完售 (數量有限)</option>
+          <option value="empty">已發完 / 派發完畢</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="note">補充說明（可選）</label>
+        <input type="text" id="note" placeholder="例如：需出示票根、每張飛限領一份">
+      </div>
+
+      <button type="submit">送出回報</button>
+    </form>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center;">
+    <h2>最新回報列表</h2>
+    <button id="clearBtn" class="clear-btn" style="width: auto; padding: 6px 12px; font-size: 0.8rem;">清空本地紀錄</button>
+  </div>
+  <div id="reportList"></div>
+</div>
+
+<script>
+  // 各大院線分店列表對照表
+  const cinemaBranches = {
+    "英皇院線": [
+      "尖沙咀 iSQUARE",
+      "中環娛樂行",
+      "屯門新都商場",
+      "馬鞍山新港城中心",
+      "荃灣荃灣廣場",
+      "大圍圍方",
+      "黃竹坑 The Southside",
+      "銅鑼灣時代廣場"
+    ],
+    "MCL院線": [
+      "德福戲院",
+      "K11 Art House",
+      "MCL Cinema City 朗豪坊",
+      "康怡戲院",
+      "皇室戲院",
+      "MCL 海怡戲院",
+      "粉嶺 MCL Green Code Cinema",
+      "MCL CINEMAS Plus+ 荷里活",
+      "MCL AIRSIDE 戲院",
+      "MCL 沙田 Cinema"
+    ],
+    "百老匯院線": [
+      "PREMIERE ELEMENTS",
+      "MOViE MOViE Pacific Place",
+      "MOViE MOViE Cityplaza",
+      "B+ cinema apm",
+      "B+ cinema MOKO",
+      "百老匯 CINEMA PALACE (葵芳)",
+      "百老匯 荃灣",
+      "百老匯 旺角",
+      "百老匯 MY CINEMA YOHO MALL"
+    ],
+    "高先電影": [
+      "高先電影院 (堅尼地城)"
+    ],
+    "影藝院線": [
+      "影藝戲院 (翡翠明珠)",
+      "影藝戲院 (青衣城)",
+      "影藝戲院 (九龍城)"
+    ]
+  };
+
+  let currentChainFilter = 'ALL';
+  let currentCinemaSearch = '';
+
+  // 監聽院線切換，動態改變戲院選單
+  const chainSelect = document.getElementById('cinemaChain');
+  const cinemaSelect = document.getElementById('cinemaSelect');
+  const cinemaInput = document.getElementById('cinemaInput');
+
+  chainSelect.addEventListener('change', function() {
+    const selectedChain = this.value;
+    cinemaSelect.innerHTML = '';
+
+    if (cinemaBranches[selectedChain]) {
+      cinemaSelect.style.display = 'block';
+      cinemaInput.style.display = 'none';
+      cinemaInput.removeAttribute('required');
+      cinemaSelect.setAttribute('required', 'required');
+
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = '請選擇分店...';
+      cinemaSelect.appendChild(defaultOpt);
+
+      cinemaBranches[selectedChain].forEach(branch => {
+        const opt = document.createElement('option');
+        opt.value = branch;
+        opt.textContent = branch;
+        cinemaSelect.appendChild(opt);
+      });
+    } else {
+      cinemaSelect.style.display = 'none';
+      cinemaSelect.removeAttribute('required');
+      cinemaInput.style.display = 'block';
+      cinemaInput.setAttribute('required', 'required');
+    }
+  });
+
+  // 從 LocalStorage 載入資料
+  let reports = JSON.parse(localStorage.getItem('poster_reports')) || [
+    {
+      movie: "劇場版 咒術迴戰",
+      chain: "MCL院線",
+      location: "德福戲院",
+      perk: "第一週入場特典 A4 透明膠夾",
+      status: "few",
+      statusText: "即將完售",
+      note: "下午場次排隊人潮多，職員表示所餘無幾",
+      image: "",
+      time: "預設範例"
+    },
+    {
+      movie: "排球少年!! 垃圾場的決戰",
+      chain: "百老匯院線",
+      location: "B+ cinema apm",
+      perk: "33.5卷 繁體中文特刊",
+      status: "available",
+      statusText: "熱烈發放中",
+      note: "現場庫存充足",
+      image: "",
+      time: "預設範例"
+    }
+  ];
+
+  function renderReports() {
+    const listEl = document.getElementById('reportList');
+    listEl.innerHTML = '';
+
+    const filteredReports = reports.filter(r => {
+      const matchChain = (currentChainFilter === 'ALL') || (r.chain === currentChainFilter);
+      const matchCinema = r.location.toLowerCase().includes(currentCinemaSearch.toLowerCase());
+      return matchChain && matchCinema;
+    });
+
+    if (filteredReports.length === 0) {
+      listEl.innerHTML = `<div class="card no-data">目前沒有符合該條件的特典回報資料</div>`;
+      return;
+    }
+
+    filteredReports.forEach(r => {
+      let badgeClass = 'status-available';
+      if(r.status === 'few') badgeClass = 'status-few';
+      if(r.status === 'empty') badgeClass = 'status-empty';
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <div class="item-header">
+          <span class="item-title">${r.movie}</span>
+          <span class="status-badge ${badgeClass}">${r.statusText}</span>
+        </div>
+        <div class="meta">
+          <span class="chain-badge">${r.chain}</span> 📍 <strong>${r.location}</strong>
+        </div>
+        <div style="margin-top: 6px;">🎁 <strong>特典：</strong> ${r.perk}</div>
+        ${r.note ? `<div style="margin-top:4px; font-size:0.9rem; color:#ccc;">💬 <strong>備註：</strong> ${r.note}</div>` : ''}
+        ${r.image ? `<div style="margin-top:8px;"><img src="${r.image}" class="report-img" alt="特典照片"></div>` : ''}
+        <div class="meta" style="margin-top: 10px;">⏰ 回報時間：${r.time}</div>
+      `;
+      listEl.appendChild(card);
+    });
+  }
+
+  function saveToLocalStorage() {
+    localStorage.setItem('poster_reports', JSON.stringify(reports));
+  }
+
+  document.getElementById('reportForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const movie = document.getElementById('movieName').value;
+    const chain = document.getElementById('cinemaChain').value;
+    const location = cinemaSelect.style.display !== 'none' ? cinemaSelect.value : cinemaInput.value;
+    const perk = document.getElementById('perkDesc').value;
+    const statusSelect = document.getElementById('status');
+    const status = statusSelect.value;
+    const statusText = statusSelect.options[statusSelect.selectedIndex].text.split(' ')[0];
+    const note = document.getElementById('note').value;
+    const imageInput = document.getElementById('perkImage');
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    function saveAndRender(imageUrl = '') {
+      reports.unshift({
+        movie,
+        chain,
+        location,
+        perk,
+        status,
+        statusText,
+        note,
+        image: imageUrl,
+        time: nowTime
+      });
+      saveToLocalStorage();
+      renderReports();
+      document.getElementById('reportForm').reset();
+      cinemaSelect.innerHTML = '<option value="">請先選擇院線...</option>';
+      cinemaSelect.style.display = 'block';
+      cinemaInput.style.display = 'none';
+    }
+
+    if (imageInput.files && imageInput.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        saveAndRender(e.target.result);
+      };
+      reader.readAsDataURL(imageInput.files[0]);
+    } else {
+      saveAndRender('');
+    }
+  });
+
+  document.getElementById('chainFilters').addEventListener('click', function(e) {
+    if (e.target.classList.contains('filter-btn')) {
+      document.querySelectorAll('#chainFilters .filter-btn').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      currentChainFilter = e.target.getAttribute('data-chain');
+      renderReports();
+    }
+  });
+
+  document.getElementById('cinemaSearch').addEventListener('input', function(e) {
+    currentCinemaSearch = e.target.value.trim();
+    renderReports();
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', function() {
+    if (confirm('確定要清空所有本地儲存的回報資料嗎？')) {
+      localStorage.removeItem('poster_reports');
+      reports = [];
+      renderReports();
+    }
+  });
+
+  renderReports();
+</script>
+
+</body>
+</html>
